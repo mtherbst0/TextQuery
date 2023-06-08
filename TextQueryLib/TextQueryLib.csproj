@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BabyKusto.Core" Version="0.1.5-preview" />
+    <PackageReference Include="Microsoft.Azure.Kusto.Language" Version="11.3.1" />
+  </ItemGroup>
+
+</Project>
