@@ -7,6 +7,8 @@ using BabyKusto.Core;
 using BabyKusto.Core.Util;
 using BabyKusto.Core.Evaluation;
 using System.Text.Json.Serialization;
+using static System.Runtime.InteropServices.JavaScript.JSType;
+using Microsoft.VisualBasic.FileIO;
 
 namespace TextQueryLib
 {
@@ -155,6 +157,49 @@ namespace TextQueryLib
         public IEnumerable<string[]> Rows { get; }
     }
 
+    public class CsvTsvDataProcessor : IDataProcessor
+    {
+        public CsvTsvDataProcessor(CsvTsvType type, bool firstRowHeadings, string[] headings, AllData data, IAsyncState asyncState)
+        {
+            // Warning: this is a bad idea to have a side-effect in a SelectMany. Fix it later.
+            string[]? firstRow = null;
+            this.Rows = data.Files.SelectMany((file, index) =>
+            {
+                if (asyncState.IsCancellationPending())
+                {
+                    return Enumerable.Empty<string[]>();
+                }
+                asyncState.ReportStatus(index * 100 / data.Files.Length, $"Loading file: {file.FileName}");
+                using (var parser = new TextFieldParser(file.Stream))
+                {
+                    parser.SetDelimiters(type switch { CsvTsvType.Csv => ",", CsvTsvType.Tsv => "\t", _ => throw new Exception("Unsupported CSV/TSV mode") });
+                    var rows = EnumerateRows(parser).ToArray(); // Prevent double enumeration
+                    if (firstRowHeadings && firstRow == null)
+                    {
+                        // If there's no first row, then the first row heading setting was invalid.
+                        firstRow = rows.First();
+                    }
+                    var dataRows = firstRowHeadings ? rows.Skip(1).ToArray() : rows;
+                    return dataRows.Select(row => IDataProcessor.AddFileNameToRow(data, file.FileName, row).ToArray());
+                }
+            }).ToArray(); // Note: we need to do this to prevent double enumeration. Fixing this will eventually allow this to stream in the data. (And fix the side-effect issue mentioned before.)
+
+            this.Columns = IDataProcessor.AddFileNameColumn(data, (firstRowHeadings ? firstRow : headings) ?? new string[0]);
+        }
+
+        private static IEnumerable<string[]> EnumerateRows(TextFieldParser parser)
+        {
+            while (!parser.EndOfData)
+            {
+                yield return parser.ReadFields()!;
+            }
+        }
+
+        public string[] Columns { get; }
+
+        public IEnumerable<string[]> Rows { get; }
+    }
+
     public class AllData : IDisposable
     {
         public AllData(Stream file)
@@ -254,6 +299,12 @@ namespace TextQueryLib
             ////var code = KustoCode.ParseAndAnalyze(query, globals);
             ////var diagnostics = code.GetDiagnostics();
         }
+
+        public static ScanResult ProcessCsvTsv(AllData data, CsvTsvType mode, bool firstRowHeadings, string[] headings, IAsyncState asyncState)
+        {
+            var dataProcessor = new CsvTsvDataProcessor(mode, firstRowHeadings, headings, data, asyncState);
+            return new ScanResult(dataProcessor);
+        }
     }
 
     [JsonDerivedType(typeof(FileDataSourceProfile), "file")]
@@ -295,6 +346,12 @@ namespace TextQueryLib
 
         [JsonPropertyName("global")]
         public bool? Global { get; set; }
+    }
+
+    public enum CsvTsvType
+    {
+        Csv,
+        Tsv,
     }
 
     [JsonDerivedType(typeof(KustoProfile), "kusto")]

@@ -95,6 +95,10 @@ namespace TextQuery
             {
                 return ScanFile.ProcessWithRegex(param.RegexParams.Regex, param.Data, param.RegexParams.IncludeWholeMatch, param.RegexParams.Global, asyncState);
             }
+            else if (param.CsvTsvParams != null)
+            {
+                return ScanFile.ProcessCsvTsv(param.Data, param.CsvTsvParams.Type, param.CsvTsvParams.FirstRowHeadings, param.CsvTsvParams.Headings, asyncState);
+            }
             else
             {
                 throw new Exception($"No supported processor parameters found");
@@ -118,7 +122,8 @@ namespace TextQuery
                         param.RegexParams = new QueryParams.RegexParam(regexTextBox.Text, wholeMatchCheckBox.Checked, regexGlobalCheckBox.Checked);
                         break;
                     case "csvTsvTab":
-                        throw new Exception("TODO");
+                        param.CsvTsvParams = new QueryParams.CsvTsvParam(csvTsvComboBox.SelectedItem switch { "CSV" => CsvTsvType.Csv, "TSV" => CsvTsvType.Tsv, _ => throw new Exception("Unknown CSV/TSV type") }, csvTsvHeadingsCheckBox.Checked, csvTsvHeadingsTextBox.Text.Split(","));
+                        break;
                     default:
                         throw new Exception($"Unsupported processor tab: {this.processorTabControl.SelectedTab.Name}");
                 }
@@ -136,6 +141,8 @@ namespace TextQuery
             }
 
             public RegexParam? RegexParams { get; set; }
+
+            public CsvTsvParam? CsvTsvParams { get; set; }
 
             public string Query { get; }
 
@@ -155,6 +162,22 @@ namespace TextQuery
                 public bool IncludeWholeMatch { get; }
 
                 public bool Global { get; }
+            }
+
+            public class CsvTsvParam
+            {
+                public CsvTsvParam(CsvTsvType mode, bool firstRowHeadings, string[] headings)
+                {
+                    Type = mode;
+                    FirstRowHeadings = firstRowHeadings;
+                    Headings = headings;
+                }
+
+                public CsvTsvType Type { get; }
+
+                public bool FirstRowHeadings { get; }
+
+                public string[] Headings { get; }
             }
         }
 
@@ -243,6 +266,7 @@ namespace TextQuery
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
+            // TODO: use a better system to sync these
             Properties.Settings.Default["DataSourceTab"] = this.dataSourceTabs.SelectedTab.Name;
             Properties.Settings.Default["ProcessorTab"] = this.processorTabControl.SelectedTab.Name;
             Properties.Settings.Default["LastFile"] = this.fileNameTextBox.Text;
@@ -394,6 +418,11 @@ namespace TextQuery
                     this.multipleFilePathTextBox.Text = this.multipleFileFolderBrowserDialog.SelectedPath;
                     break;
             }
+        }
+
+        private void editHeadingsButton_Click(object sender, EventArgs e)
+        {
+            MessageBox.Show("Not implemented. Input headings separated by commas or use the \"First Row Headings\" option to pull headings from the file's first row.");
         }
     }
 }

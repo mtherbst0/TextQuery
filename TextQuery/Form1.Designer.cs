@@ -246,6 +246,7 @@
             editHeadingsButton.TabIndex = 4;
             editHeadingsButton.Text = "Edit";
             editHeadingsButton.UseVisualStyleBackColor = true;
+            editHeadingsButton.Click += editHeadingsButton_Click;
             // 
             // csvTsvHeadingsCheckBox
             // 
